@@ -40,7 +40,7 @@ function PrivateRoute({ children, requiredRole }) {
   
   if (!user) return <Navigate to="/login" replace />
   
-  if (requiredRole && user.rol !== requiredRole) {
+  if (requiredRole === 'admin' && !['admin','staff'].includes(user.rol)) {
     return <Navigate to={['admin','staff'].includes(user.rol) ? '/admin' : '/app'} replace />
   }
   
