@@ -27,6 +27,7 @@ import AdminCatalogView from './pages/admin/AdminCatalogView'
 import AdminAddressesView from './pages/admin/AdminAddressesView'
 import AdminContractView from './pages/admin/AdminContractView'
 import AdminImportView from './pages/admin/AdminImportView'
+import AdminStaffView from './pages/admin/AdminStaffView'
 
 function PrivateRoute({ children, requiredRole }) {
   const { user, loading } = useAuth()
@@ -131,6 +132,7 @@ export default function App() {
               <Route path="users" element={<AdminUsersView />} />
               <Route path="orders" element={<AdminOrdersView />} />
               <Route path="catalog" element={<AdminCatalogView />} />
+              <Route path="staff" element={<AdminStaffView />} />
               <Route path="addresses" element={<AdminAddressesView />} />
               <Route path="contracts" element={<AdminContractView />} />
               <Route path="import" element={<AdminImportView />} />

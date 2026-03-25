@@ -59,7 +59,7 @@ def require_role(*roles: str):
 
 
 def require_admin(current_user: models.User = Depends(get_current_user)):
-    if current_user.rol != 'admin':
+    if current_user.rol not in ["admin", "staff"]:
         raise HTTPException(status_code=403, detail='Se requiere rol de administrador')
     return current_user
 

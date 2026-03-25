@@ -7,6 +7,7 @@ const navItems = [
   { to: '/admin/users', icon: '👥', label: 'Clientes' },
   { to: '/admin/orders', icon: '📋', label: 'Pedidos' },
   { to: '/admin/catalog', icon: '📦', label: 'Catálogo' },
+  { to: '/admin/staff', icon: '👥', label: 'Equipo' },
   { to: '/admin/addresses', icon: '📍', label: 'Direcciones M30' },
   { to: '/admin/contracts', icon: '📄', label: 'Contratos' },
   { to: '/admin/import', icon: '📥', label: 'Importar Clientes' },

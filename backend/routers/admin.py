@@ -580,3 +580,62 @@ def admin_create_user(
     db.commit()
     db.refresh(user)
     return {'id': user.id, 'message': 'Cliente creado correctamente'}
+
+
+class AdminCreateStaff(BaseModel):
+    nombre: str
+    email: str
+    password: str
+
+
+@router.post('/admin/staff')
+def create_staff(
+    req: AdminCreateStaff,
+    current_user: models.User = Depends(auth_module.require_admin),
+    db: Session = Depends(get_db)
+):
+    # Solo admin puede crear staff (no staff)
+    if current_user.rol != 'admin':
+        raise HTTPException(403, 'Solo el admin puede crear usuarios staff')
+    existing = db.query(models.User).filter(models.User.email == req.email).first()
+    if existing:
+        raise HTTPException(400, 'Ya existe un usuario con ese email')
+    from passlib.context import CryptContext
+    pwd_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
+    user = models.User(
+        nombre=req.nombre,
+        email=req.email,
+        hashed_password=pwd_context.hash(req.password),
+        estado='aprobado',
+        email_verified=True,
+        rol='staff'
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return {'id': user.id, 'message': 'Usuario staff creado'}
+
+
+@router.get('/admin/staff')
+def list_staff(
+    current_user: models.User = Depends(auth_module.require_admin),
+    db: Session = Depends(get_db)
+):
+    staff = db.query(models.User).filter(models.User.rol == 'staff').all()
+    return [{'id': u.id, 'nombre': u.nombre, 'email': u.email} for u in staff]
+
+
+@router.delete('/admin/staff/{user_id}')
+def delete_staff(
+    user_id: int,
+    current_user: models.User = Depends(auth_module.require_admin),
+    db: Session = Depends(get_db)
+):
+    if current_user.rol != 'admin':
+        raise HTTPException(403, 'Solo el admin puede eliminar usuarios staff')
+    user = db.query(models.User).filter(models.User.id == user_id, models.User.rol == 'staff').first()
+    if not user:
+        raise HTTPException(404, 'Usuario no encontrado')
+    db.delete(user)
+    db.commit()
+    return {'message': 'Usuario staff eliminado'}
