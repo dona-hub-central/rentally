@@ -567,7 +567,7 @@ def admin_create_user(
     user = models.User(
         nombre=req.nombre,
         email=req.email,
-        password_hash=pwd_context.hash(req.password or "Rentally2025!"),
+        password_hash=hashlib.sha256((req.password or "Rentally2025!").encode()).hexdigest(),
         empresa=req.empresa,
         cif=req.cif,
         telefono=req.telefono,
@@ -600,12 +600,11 @@ def create_staff(
     existing = db.query(models.User).filter(models.User.email == req.email).first()
     if existing:
         raise HTTPException(400, 'Ya existe un usuario con ese email')
-    from passlib.context import CryptContext
-    pwd_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
+    import hashlib
     user = models.User(
         nombre=req.nombre,
         email=req.email,
-        password_hash=pwd_context.hash(req.password),
+        password_hash=hashlib.sha256(req.password.encode()).hexdigest(),
         estado='aprobado',
         email_verified=True,
         rol='staff'
