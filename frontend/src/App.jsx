@@ -6,6 +6,7 @@ import { CartProvider } from './context/CartContext'
 // Auth pages
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
+import LandingPage from './pages/LandingPage'
 
 // Client pages
 import Layout from './components/Layout'
@@ -65,6 +66,22 @@ function ClientRoute({ children }) {
   return children
 }
 
+function HomeRoute() {
+  const { user, loading } = useAuth()
+  
+  if (loading) return (
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+    </div>
+  )
+  
+  if (user) {
+    return <Navigate to={user.rol === 'admin' ? '/admin' : '/app'} replace />
+  }
+  
+  return <LandingPage />
+}
+
 export default function App() {
   return (
     <AuthProvider>
@@ -72,9 +89,9 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             {/* Public routes */}
+            <Route path="/" element={<HomeRoute />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
-            <Route path="/" element={<Navigate to="/login" replace />} />
 
             {/* Client routes */}
             <Route path="/app" element={

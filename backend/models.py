@@ -69,6 +69,7 @@ class Fianza(Base):
     confirmada_por = Column(Integer, ForeignKey("users.id"), nullable=True)
     confirmada_at = Column(DateTime)
     notas = Column(Text)
+    exenta = Column(Boolean, default=False)
 
     user = relationship("User", back_populates="fianza", foreign_keys=[user_id])
 
@@ -156,6 +157,7 @@ class Order(Base):
     subtotal = Column(Float, default=0.0)
     total = Column(Float, default=0.0)
     notas = Column(Text)
+    exenta = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

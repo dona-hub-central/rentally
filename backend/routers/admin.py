@@ -318,10 +318,54 @@ def get_pending_addresses(
             "ciudad": a.ciudad,
             "cp": a.cp,
             "validada": a.validada,
-            "validada_at": a.validada_at
+            "validada_at": a.validada_at,
+            "portal": getattr(a, 'portal', None),
+            "planta": getattr(a, 'planta', None),
+            "puerta": getattr(a, 'puerta', None)
         })
     return result
 
+
+
+
+class AdminAddressCreate(BaseModel):
+    user_id: int
+    nombre: str
+    direccion_completa: str
+    portal: Optional[str] = None
+    planta: Optional[str] = None
+    puerta: Optional[str] = None
+    ciudad: Optional[str] = "Madrid"
+    cp: Optional[str] = None
+
+
+@router.post("/admin/addresses")
+def admin_create_address(
+    req: AdminAddressCreate,
+    current_user: models.User = Depends(auth_module.require_admin),
+    db: Session = Depends(get_db)
+):
+    user = db.query(models.User).filter(models.User.id == req.user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Cliente no encontrado")
+
+    address = models.Address(
+        user_id=req.user_id,
+        nombre=req.nombre,
+        direccion_completa=req.direccion_completa,
+        ciudad=req.ciudad or "Madrid",
+        cp=req.cp,
+        validada=True,
+        validada_por=current_user.id,
+        validada_at=datetime.utcnow()
+    )
+    if hasattr(address, 'portal'): address.portal = req.portal
+    if hasattr(address, 'planta'): address.planta = req.planta
+    if hasattr(address, 'puerta'): address.puerta = req.puerta
+    db.add(address)
+    db.commit()
+    db.refresh(address)
+    return {"id": address.id, "message": "Dirección creada y validada"}
 
 @router.put("/admin/addresses/{address_id}/validate")
 def validate_address(
@@ -353,3 +397,147 @@ def reject_address(
     db.delete(address)
     db.commit()
     return {"message": "Dirección rechazada y eliminada"}
+
+
+@router.put("/admin/users/{user_id}/exent-fianza")
+def exent_fianza(
+    user_id: int,
+    current_user: models.User = Depends(auth_module.require_admin),
+    db: Session = Depends(get_db)
+):
+    """Marcar cliente como exento de fianza (sin fianza requerida)"""
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    fianza = db.query(models.Fianza).filter(models.Fianza.user_id == user_id).first()
+    if not fianza:
+        fianza = models.Fianza(user_id=user_id)
+        db.add(fianza)
+
+    fianza.exenta = True
+    fianza.confirmada = True  # Exenta = no necesita fianza = puede pedir
+    fianza.confirmada_por = current_user.id
+    fianza.confirmada_at = datetime.utcnow()
+    fianza.notas = "Exento de fianza"
+    db.commit()
+    return {"ok": True, "mensaje": "Cliente marcado como exento de fianza"}
+
+
+# ── Nuevos endpoints: detalle, edición y envío de contrato ──────────────────
+
+class UpdateUserReq(BaseModel):
+    nombre: Optional[str] = None
+    empresa: Optional[str] = None
+    cif: Optional[str] = None
+    telefono: Optional[str] = None
+    direccion: Optional[str] = None
+    email: Optional[str] = None
+
+
+@router.get('/admin/users/{user_id}')
+def get_user_detail(
+    user_id: int,
+    current_user: models.User = Depends(auth_module.require_admin),
+    db: Session = Depends(get_db)
+):
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(404, 'Usuario no encontrado')
+
+    fianza = db.query(models.Fianza).filter(models.Fianza.user_id == user_id).first()
+    active_contract = db.query(models.Contract).filter(models.Contract.activo == True).first()
+    cc = None
+    if active_contract:
+        cc = db.query(models.ClientContract).filter(
+            models.ClientContract.user_id == user_id,
+            models.ClientContract.contract_id == active_contract.id
+        ).first()
+
+    addresses = db.query(models.Address).filter(models.Address.user_id == user_id).all()
+    orders = db.query(models.Order).filter(models.Order.user_id == user_id).order_by(models.Order.created_at.desc()).limit(10).all()
+
+    return {
+        'id': user.id,
+        'email': user.email,
+        'nombre': user.nombre,
+        'empresa': user.empresa,
+        'cif': user.cif,
+        'telefono': user.telefono,
+        'direccion': user.direccion,
+        'rol': user.rol,
+        'estado': user.estado,
+        'email_verified': user.email_verified,
+        'created_at': user.created_at.isoformat() if user.created_at else None,
+        'has_fianza': (fianza.confirmada or fianza.exenta) if fianza else False,
+        'fianza_exenta': fianza.exenta if fianza else False,
+        'has_signed_contract': cc.firmado if cc else False,
+        'contract_sent': cc is not None,
+        'contract_otp_expires': cc.otp_expires.isoformat() if cc and cc.otp_expires else None,
+        'addresses': [{'id': a.id, 'nombre': a.nombre, 'direccion': a.direccion_completa, 'validada': a.validada} for a in addresses],
+        'total_orders': len(orders),
+    }
+
+
+@router.put('/admin/users/{user_id}/edit')
+def edit_user(
+    user_id: int,
+    req: UpdateUserReq,
+    current_user: models.User = Depends(auth_module.require_admin),
+    db: Session = Depends(get_db)
+):
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(404, 'Usuario no encontrado')
+    if req.nombre: user.nombre = req.nombre
+    if req.empresa: user.empresa = req.empresa
+    if req.cif: user.cif = req.cif
+    if req.telefono: user.telefono = req.telefono
+    if req.direccion: user.direccion = req.direccion
+    if req.email: user.email = req.email.lower()
+    db.commit()
+    return {'ok': True}
+
+
+@router.post('/admin/users/{user_id}/send-contract')
+def send_contract(
+    user_id: int,
+    current_user: models.User = Depends(auth_module.require_admin),
+    db: Session = Depends(get_db)
+):
+    import random
+    from datetime import timedelta
+
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(404, 'Usuario no encontrado')
+
+    active_contract = db.query(models.Contract).filter(models.Contract.activo == True).first()
+    if not active_contract:
+        raise HTTPException(400, 'No hay contrato activo. Sube un contrato en la sección Contratos.')
+
+    otp = str(random.randint(100000, 999999))
+    expires = datetime.utcnow() + timedelta(hours=48)
+
+    cc = db.query(models.ClientContract).filter(
+        models.ClientContract.user_id == user_id,
+        models.ClientContract.contract_id == active_contract.id
+    ).first()
+    if not cc:
+        cc = models.ClientContract(user_id=user_id, contract_id=active_contract.id)
+        db.add(cc)
+
+    cc.otp_code = otp
+    cc.otp_expires = expires
+    cc.firmado = False
+    db.commit()
+
+    print(f'[CONTRACT OTP] Usuario {user.email}: OTP={otp}, expira={expires}')
+
+    return {
+        'ok': True,
+        'mensaje': f'Contrato enviado a {user.email}',
+        'otp_preview': otp,
+        'contract_url': active_contract.archivo_url,
+        'expires_at': expires.isoformat()
+    }

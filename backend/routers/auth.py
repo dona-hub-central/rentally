@@ -115,7 +115,7 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
     if user.estado == "bloqueado":
         raise HTTPException(status_code=403, detail="Cuenta bloqueada. Contacta con soporte.")
 
-    token = auth_module.create_access_token({"sub": user.id})
+    token = auth_module.create_access_token({"sub": str(user.id)})
 
     # Check contract status
     has_signed_contract = False
