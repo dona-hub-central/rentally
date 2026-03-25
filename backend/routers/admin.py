@@ -567,7 +567,7 @@ def admin_create_user(
     user = models.User(
         nombre=req.nombre,
         email=req.email,
-        hashed_password=pwd_context.hash(req.password or 'Rentally2025!'),
+        password_hash=pwd_context.hash(req.password or "Rentally2025!"),
         empresa=req.empresa,
         cif=req.cif,
         telefono=req.telefono,
@@ -605,7 +605,7 @@ def create_staff(
     user = models.User(
         nombre=req.nombre,
         email=req.email,
-        hashed_password=pwd_context.hash(req.password),
+        password_hash=pwd_context.hash(req.password),
         estado='aprobado',
         email_verified=True,
         rol='staff'

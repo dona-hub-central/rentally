@@ -41,7 +41,7 @@ function PrivateRoute({ children, requiredRole }) {
   if (!user) return <Navigate to="/login" replace />
   
   if (requiredRole && user.rol !== requiredRole) {
-    return <Navigate to={user.rol === 'admin' ? '/admin' : '/app'} replace />
+    return <Navigate to={['admin','staff'].includes(user.rol) ? '/admin' : '/app'} replace />
   }
   
   return children
@@ -51,7 +51,7 @@ function ClientRoute({ children }) {
   const { user } = useAuth()
   
   if (!user) return <Navigate to="/login" replace />
-  if (user.rol === 'admin') return <Navigate to="/admin" replace />
+  if (['admin','staff'].includes(user.rol)) return <Navigate to="/admin" replace />
   
   // Check if user needs onboarding
   const needsOnboarding = !user.email_verified || 
@@ -77,7 +77,7 @@ function HomeRoute() {
   )
   
   if (user) {
-    return <Navigate to={user.rol === 'admin' ? '/admin' : '/app'} replace />
+    return <Navigate to={['admin','staff'].includes(user.rol) ? '/admin' : '/app'} replace />
   }
   
   return <LandingPage />
