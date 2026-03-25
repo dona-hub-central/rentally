@@ -231,3 +231,29 @@ class EmailLog(Base):
     html_body = Column(Text)
     sent_at = Column(DateTime, default=datetime.utcnow)
     status = Column(String, default="logged")
+
+
+class Kit(Base):
+    __tablename__ = 'kits'
+
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String, nullable=False)
+    descripcion = Column(String)
+    precio = Column(Float, default=0)
+    imagen_url = Column(String)
+    activo = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    items = relationship('KitItem', back_populates='kit', cascade='all, delete-orphan')
+
+
+class KitItem(Base):
+    __tablename__ = 'kit_items'
+
+    id = Column(Integer, primary_key=True, index=True)
+    kit_id = Column(Integer, ForeignKey('kits.id'))
+    product_id = Column(Integer, ForeignKey('products.id'))
+    cantidad = Column(Integer, default=1)
+
+    kit = relationship('Kit', back_populates='items')
+    product = relationship('Product')

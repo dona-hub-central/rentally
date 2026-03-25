@@ -190,3 +190,121 @@ def delete_product(
     product.activo = False
     db.commit()
     return {"message": f"Producto '{product.nombre}' desactivado"}
+
+
+# ── KITS ──────────────────────────────────────────────────────
+
+class KitItemIn(BaseModel):
+    product_id: int
+    cantidad: int = 1
+
+class KitCreate(BaseModel):
+    nombre: str
+    descripcion: Optional[str] = None
+    precio: float = 0
+    imagen_url: Optional[str] = None
+    items: List[KitItemIn] = []
+
+class KitUpdate(BaseModel):
+    nombre: Optional[str] = None
+    descripcion: Optional[str] = None
+    precio: Optional[float] = None
+    imagen_url: Optional[str] = None
+    activo: Optional[bool] = None
+    items: Optional[List[KitItemIn]] = None
+
+
+def kit_to_dict(k, db):
+    items = []
+    for i in k.items:
+        p = db.query(models.Product).filter(models.Product.id == i.product_id).first()
+        items.append({
+            'id': i.id,
+            'product_id': i.product_id,
+            'product_nombre': p.nombre if p else '',
+            'product_imagen': p.imagen_url if p else None,
+            'cantidad': i.cantidad
+        })
+    return {
+        'id': k.id,
+        'nombre': k.nombre,
+        'descripcion': k.descripcion,
+        'precio': k.precio,
+        'imagen_url': k.imagen_url,
+        'activo': k.activo,
+        'items': items
+    }
+
+
+@router.get('/kits')
+def get_kits(db: Session = Depends(get_db)):
+    kits = db.query(models.Kit).filter(models.Kit.activo == True).all()
+    return [kit_to_dict(k, db) for k in kits]
+
+
+@router.get('/admin/kits')
+def admin_get_kits(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth_module.require_admin)
+):
+    kits = db.query(models.Kit).order_by(models.Kit.id.desc()).all()
+    return [kit_to_dict(k, db) for k in kits]
+
+
+@router.post('/admin/kits')
+def create_kit(
+    req: KitCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth_module.require_admin)
+):
+    kit = models.Kit(
+        nombre=req.nombre,
+        descripcion=req.descripcion,
+        precio=req.precio,
+        imagen_url=req.imagen_url
+    )
+    db.add(kit)
+    db.flush()
+    for item in req.items:
+        db.add(models.KitItem(kit_id=kit.id, product_id=item.product_id, cantidad=item.cantidad))
+    db.commit()
+    db.refresh(kit)
+    return kit_to_dict(kit, db)
+
+
+@router.put('/admin/kits/{kit_id}')
+def update_kit(
+    kit_id: int,
+    req: KitUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth_module.require_admin)
+):
+    kit = db.query(models.Kit).filter(models.Kit.id == kit_id).first()
+    if not kit:
+        raise HTTPException(404, 'Kit no encontrado')
+    if req.nombre is not None: kit.nombre = req.nombre
+    if req.descripcion is not None: kit.descripcion = req.descripcion
+    if req.precio is not None: kit.precio = req.precio
+    if req.imagen_url is not None: kit.imagen_url = req.imagen_url
+    if req.activo is not None: kit.activo = req.activo
+    if req.items is not None:
+        db.query(models.KitItem).filter(models.KitItem.kit_id == kit_id).delete()
+        for item in req.items:
+            db.add(models.KitItem(kit_id=kit_id, product_id=item.product_id, cantidad=item.cantidad))
+    db.commit()
+    db.refresh(kit)
+    return kit_to_dict(kit, db)
+
+
+@router.delete('/admin/kits/{kit_id}')
+def delete_kit(
+    kit_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth_module.require_admin)
+):
+    kit = db.query(models.Kit).filter(models.Kit.id == kit_id).first()
+    if not kit:
+        raise HTTPException(404, 'Kit no encontrado')
+    kit.activo = False
+    db.commit()
+    return {'message': 'Kit desactivado'}
