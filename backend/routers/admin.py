@@ -319,6 +319,10 @@ def get_pending_addresses(
             "cp": a.cp,
             "validada": a.validada,
             "validada_at": a.validada_at,
+            "tipo_reparto": getattr(a, "tipo_reparto", None),
+            "pack": getattr(a, "pack", None),
+            "llave_electronica": bool(getattr(a, "llave_electronica", False)),
+            "nombre_propiedad": getattr(a, "nombre_propiedad", None),
             "portal": getattr(a, 'portal', None),
             "planta": getattr(a, 'planta', None),
             "puerta": getattr(a, 'puerta', None)
