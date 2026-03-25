@@ -541,3 +541,42 @@ def send_contract(
         'contract_url': active_contract.archivo_url,
         'expires_at': expires.isoformat()
     }
+
+
+class AdminCreateUser(BaseModel):
+    nombre: str
+    email: str
+    empresa: Optional[str] = None
+    cif: Optional[str] = None
+    telefono: Optional[str] = None
+    direccion: Optional[str] = None
+    password: Optional[str] = 'Rentally2025!'
+
+
+@router.post('/admin/users')
+def admin_create_user(
+    req: AdminCreateUser,
+    current_user: models.User = Depends(auth_module.require_admin),
+    db: Session = Depends(get_db)
+):
+    from passlib.context import CryptContext
+    existing = db.query(models.User).filter(models.User.email == req.email).first()
+    if existing:
+        raise HTTPException(status_code=400, detail='Ya existe un usuario con ese email')
+    pwd_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
+    user = models.User(
+        nombre=req.nombre,
+        email=req.email,
+        hashed_password=pwd_context.hash(req.password or 'Rentally2025!'),
+        empresa=req.empresa,
+        cif=req.cif,
+        telefono=req.telefono,
+        direccion=req.direccion,
+        estado='aprobado',
+        email_verified=True,
+        role='client'
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return {'id': user.id, 'message': 'Cliente creado correctamente'}
